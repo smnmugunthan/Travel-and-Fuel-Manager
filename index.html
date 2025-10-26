@@ -205,25 +205,38 @@
 
       const loadUserData = async (userId) => {
         try {
-          db.collection('trips').where('userId', '==', userId).orderBy('date', 'desc')
+          // Load trips without ordering initially (to avoid index requirement)
+          db.collection('trips').where('userId', '==', userId)
             .onSnapshot((snapshot) => {
               const tripsData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
               }));
+              // Sort in memory instead
+              tripsData.sort((a, b) => new Date(b.date) - new Date(a.date));
               setTrips(tripsData);
+            }, (err) => {
+              console.error('Error loading trips:', err);
+              setError('Error loading trips. Please refresh the page.');
             });
 
-          db.collection('fuel').where('userId', '==', userId).orderBy('date', 'desc')
+          // Load fuel entries without ordering initially
+          db.collection('fuel').where('userId', '==', userId)
             .onSnapshot((snapshot) => {
               const fuelData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
               }));
+              // Sort in memory instead
+              fuelData.sort((a, b) => new Date(b.date) - new Date(a.date));
               setFuelEntries(fuelData);
+            }, (err) => {
+              console.error('Error loading fuel entries:', err);
+              setError('Error loading fuel entries. Please refresh the page.');
             });
         } catch (err) {
           console.error('Error loading user data:', err);
+          setError('Error loading data. Please refresh the page.');
         }
       };
 
