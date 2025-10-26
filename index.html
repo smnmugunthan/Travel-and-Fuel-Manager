@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bike Tracker - Track Your Rides</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+    /* Hide scrollbar for a cleaner look, especially on mobile */
+    body {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+    }
+    body::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, and Opera */
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Firebase Configuration - KEEP YOUR CONFIG HERE
+    const firebaseConfig = {
+      apiKey: "AIzaSyAFDBwMaw7Zga9cEQ0RuN0uuNmtkrDU4L0",
+      authDomain: "bike-travel-and-fuel-manager.firebaseapp.com",
+      projectId: "bike-travel-and-fuel-manager",
+      storageBucket: "bike-travel-and-fuel-manager.firebasestorage.app",
+      messagingSenderId: "633337550155",
+      appId: "1:633337550155:web:a8347fe132d290323184ce",
+      measurementId: "G-MKTQC3T8S"
+    };
+
+    // Initialize Firebase
+    if (firebase.apps.length === 0) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // --- SVG Icons as components (from your initial code) ---
+    const Home = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
+    const PlusCircle = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>);
+    const List = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>);
+    const Camera = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>);
+    const LogOut = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>);
+    const MapPin = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>);
+    const Fuel = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="22" x2="15" y2="22"></line><line x1="4" y1="9" x2="14" y2="9"></line><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"></path><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"></path></svg>);
+    const TrendingUp = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>);
+    const BarChart3 = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>);
+    const Users = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>);
+    const Check = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>);
+    const X = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>);
+    const Loader = () => (<svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>);
+    const Trash2 = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>);
+    const Edit3 = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>);
+    const Upload = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>);
+    const Download = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>);
+    // --- End of Icons ---
+
+
+    // --- Helper Components ---
+    const StatCard = ({ icon, title, value, unit, color }) => (
+        <div className="bg-white p-4 rounded-xl shadow-lg flex flex-col justify-between h-full">
+            <div className={`text-${color}-600 mb-2`}>{icon}</div>
+            <div>
+                <p className="text-sm text-gray-500 font-medium">{title}</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                    {value} <span className="text-lg text-gray-500 font-normal">{unit}</span>
+                </p>
+            </div>
+        </div>
+    );
+
+    const RecordItem = ({ type, data, onDelete, onEdit }) => {
+        const isFuel = type === 'fuel';
+        const formattedDate = new Date(data.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+
+        let primaryText, secondaryText, icon, color;
+        
+        if (isFuel) {
+            icon = <Fuel />;
+            color = 'text-green-600';
+            const kmRidden = data.entryType === 'startEnd' ? (data.endKm - data.startKm) : data.totalKm;
+            const mileage = data.partialFill ? 'Partial Fill' : (kmRidden / data.liters).toFixed(2) + ' km/L';
+            primaryText = `${data.liters.toFixed(2)} Liters @ ₹${data.cost.toFixed(0)}`;
+            secondaryText = `${kmRidden.toFixed(0)} km ridden | ${mileage}`;
+        } else {
+            icon = <MapPin />;
+            color = 'text-indigo-600';
+            primaryText = `${data.source} to ${data.destination}`;
+            secondaryText = `${data.kilometers.toFixed(1)} KM | ${formattedDate.split(',')[0]}`;
+        }
+
+        return (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-3 flex justify-between items-start transition-shadow hover:shadow-md">
+                <div className="flex items-start">
+                    <div className={`p-2 rounded-full mr-3 ${color} bg-gray-50`}>
+                        {icon}
+                    </div>
+                    <div>
+                        <p className="font-semibold text-gray-800">{primaryText}</p>
+                        <p className="text-sm text-gray-500">{secondaryText}</p>
+                        {data.notes && <p className="text-xs text-gray-400 mt-1 italic">Notes: {data.notes}</p>}
+                    </div>
+                </div>
+                <div className="flex space-x-2 flex-shrink-0">
+                    {/* Edit feature is simple but out of scope for a single file free version */}
+                    {/* <button className="text-gray-400 hover:text-indigo-600 p-1 rounded-full" onClick={() => onEdit(data)}>
+                        <Edit3 />
+                    </button> */}
+                    <button className="text-gray-400 hover:text-red-600 p-1 rounded-full" onClick={() => onDelete(data.id)}>
+                        <Trash2 />
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    const AdminUserItem = ({ user, onApprove, onReject }) => (
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-3 flex justify-between items-center">
+            <div>
+                <p className="font-semibold text-gray-800">{user.name}</p>
+                <p className="text-sm text-gray-500">{user.email}</p>
+            </div>
+            <div className="flex space-x-2">
+                <button 
+                    onClick={() => onApprove(user.id)}
+                    className="bg-green-500 text-white text-sm px-3 py-1 rounded-full hover:bg-green-600 transition-colors"
+                >
+                    <Check className="inline w-4 h-4 mr-1"/> Approve
+                </button>
+                <button 
+                    onClick={() => onReject(user.id)}
+                    className="bg-red-500 text-white text-sm px-3 py-1 rounded-full hover:bg-red-600 transition-colors"
+                >
+                    <X className="inline w-4 h-4 mr-1"/> Reject
+                </button>
+            </div>
+        </div>
+    );
+    // --- End of Helper Components ---
+    
+    // --- Main Application Component ---
+    function BikeTrackerApp() {
+        // ... (Your existing state definitions) ...
+        const [currentUser, setCurrentUser] = useState(null);
+        const [userProfile, setUserProfile] = useState(null);
+        const [isAdmin, setIsAdmin] = useState(false);
+        const [authMode, setAuthMode] = useState('login');
+        const [loading, setLoading] = useState(true);
+        
+        const [email, setEmail] = useState('');
+        const [password, setPassword] = useState('');
+        const [name, setName] = useState('');
+        const [error, setError] = useState('');
+        const [success, setSuccess] = useState('');
+        
+        const [activeTab, setActiveTab] = useState('dashboard');
+        const [trips, setTrips] = useState([]);
+        const [fuelEntries, setFuelEntries] = useState([]);
+        const [pendingUsers, setPendingUsers] = useState([]);
+        const [historyType, setHistoryType] = useState('trips'); // 'trips' or 'fuel'
+        const [entryTab, setEntryTab] = useState('trip'); // 'trip' or 'fuel'
+        
+        const [tripForm, setTripForm] = useState({
+          source: '',
+          destination: '',
+          kilometers: '',
+          date: new Date().toISOString().slice(0, 16),
+          notes: ''
+        });
+        
+        const [fuelForm, setFuelForm] = useState({
+          entryType: 'totalKm', // Changed default to totalKm for simplicity
+          startKm: '',
+          endKm: '',
+          totalKm: '',
+          liters: '',
+          cost: '',
+          partialFill: false,
+          date: new Date().toISOString().slice(0, 16),
+          notes: ''
+        });
+
+        // --- Core Firebase Logic (Mostly from your code) ---
+        useEffect(() => {
+            const unsubscribe = auth.onAuthStateChanged(async (user) => {
+              if (user) {
+                setCurrentUser(user);
+                await loadUserProfile(user.uid);
+                await loadUserData(user.uid);
+              } else {
+                setCurrentUser(null);
+                setUserProfile(null);
+                setIsAdmin(false);
+                setTrips([]);
+                setFuelEntries([]);
+                setLoading(false); // Set loading to false once initial auth check is done
+              }
+              // This is necessary to show the login screen quickly if no user is found
+              if (loading) setLoading(false);
+            });
+      
+            return () => unsubscribe();
+        }, []);
+        
+        // ... (The rest of your loadUserProfile, loadUserData, loadPendingUsers, handleRegister, handleLogin, handleLogout functions) ...
+
+        const loadUserProfile = async (userId) => {
+            try {
+              const userDoc = await db.collection('users').doc(userId).get();
+              if (userDoc.exists) {
+                const userData = userDoc.data();
+                setUserProfile(userData);
+                setIsAdmin(userData.role === 'admin');
+                
+                if (userData.role === 'admin') {
+                  loadPendingUsers();
+                }
+                
+                if (userData.status === 'pending') {
+                    // Force log out if status is pending and user is somehow logged in
+                    await auth.signOut();
+                    setAuthMode('pending');
+                    setError('Your account is pending admin approval.');
+                }
+                
+              }
+            } catch (err) {
+              console.error('Error loading user profile:', err);
+            }
+          };
+      
+        const loadUserData = async (userId) => {
+            try {
+                // Use onSnapshot for real-time updates
+                db.collection('trips').where('userId', '==', userId).orderBy('date', 'desc')
+                    .onSnapshot((snapshot) => {
+                        const tripsData = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data(),
+                            kilometers: parseFloat(doc.data().kilometers) || 0 // Ensure number type
+                        }));
+                        setTrips(tripsData);
+                    }, err => console.error("Trips snapshot error:", err));
+
+                db.collection('fuel').where('userId', '==', userId).orderBy('date', 'desc')
+                    .onSnapshot((snapshot) => {
+                        const fuelData = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data(),
+                            liters: parseFloat(doc.data().liters) || 0,
+                            cost: parseFloat(doc.data().cost) || 0,
+                            startKm: parseFloat(doc.data().startKm) || 0,
+                            endKm: parseFloat(doc.data().endKm) || 0,
+                            totalKm: parseFloat(doc.data().totalKm) || 0,
+                        }));
+                        setFuelEntries(fuelData);
+                    }, err => console.error("Fuel snapshot error:", err));
+            } catch (err) {
+                console.error('Error loading user data:', err);
+            }
+        };
+
+        const loadPendingUsers = async () => {
+            try {
+                db.collection('users').where('status', '==', 'pending')
+                    .onSnapshot((snapshot) => {
+                        const pendingData = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        setPendingUsers(pendingData);
+                    }, err => console.error("Pending users snapshot error:", err));
+            } catch (err) {
+                console.error('Error loading pending users:', err);
+            }
+        };
+
+        const handleRegister = async (e) => {
+            e.preventDefault();
+            setError('');
+            setSuccess('');
+            setLoading(true);
+
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+
+                const usersSnapshot = await db.collection('users').get();
+                // Check if this is the very first user document created
+                const isFirstUser = usersSnapshot.docs.filter(doc => doc.id !== user.uid).length === 0;
+
+                await db.collection('users').doc(user.uid).set({
+                    email: email,
+                    name: name,
+                    role: isFirstUser ? 'admin' : 'user',
+                    status: isFirstUser ? 'approved' : 'pending',
+                    createdAt: new Date().toISOString()
+                });
+
+                if (isFirstUser) {
+                    setSuccess('Admin account created successfully! Logging you in...');
+                } else {
+                    // For non-admin, log them out and show pending screen
+                    await auth.signOut();
+                    setAuthMode('pending');
+                    setEmail('');
+                    setPassword('');
+                    setName('');
+                    setSuccess('Registration submitted! Please wait for admin approval.');
+                }
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const handleLogin = async (e) => {
+            e.preventDefault();
+            setError('');
+            setLoading(true);
+
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (!userDoc.exists) {
+                    await auth.signOut();
+                    setError('User profile not found. Please contact admin.');
+                    return;
+                }
+
+                const userData = userDoc.data();
+                if (userData.status === 'pending') {
+                    await auth.signOut();
+                    setError('Your account is pending approval. Please wait for admin to approve.');
+                    setAuthMode('pending');
+                    return;
+                }
+
+                if (userData.status === 'rejected') {
+                    await auth.signOut();
+                    setError('Your account has been rejected. Please contact admin.');
+                    return;
+                }
+                
+                // Success: AuthStateChanged useEffect will take over and set currentUser/load data
+
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const handleLogout = async () => {
+            try {
+                await auth.signOut();
+                setEmail('');
+                setPassword('');
+                setName('');
+                setActiveTab('dashboard');
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+
+        const handleAddTrip = async (e) => {
+            e.preventDefault();
+            setError('');
+            setLoading(true);
+            const kmValue = parseFloat(tripForm.kilometers);
+
+            if (kmValue <= 0 || isNaN(kmValue)) {
+                setError('Kilometers must be a positive number.');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                await db.collection('trips').add({
+                    userId: currentUser.uid,
+                    source: tripForm.source,
+                    destination: tripForm.destination,
+                    kilometers: kmValue,
+                    date: tripForm.date,
+                    notes: tripForm.notes,
+                    createdAt: new Date().toISOString()
+                });
+
+                setTripForm({
+                    source: '',
+                    destination: '',
+                    kilometers: '',
+                    date: new Date().toISOString().slice(0, 16),
+                    notes: ''
+                });
+                setSuccess('Trip added successfully! Check History tab.');
+                setTimeout(() => setSuccess(''), 4000);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const handleAddFuel = async (e) => {
+            e.preventDefault();
+            setError('');
+            setLoading(true);
+
+            const litersValue = parseFloat(fuelForm.liters);
+            const costValue = parseFloat(fuelForm.cost);
+            let kmRidden = 0;
+
+            if (fuelForm.entryType === 'startEnd') {
+                const startKm = parseFloat(fuelForm.startKm);
+                const endKm = parseFloat(fuelForm.endKm);
+                if (endKm <= startKm || isNaN(startKm) || isNaN(endKm)) {
+                    setError('End KM must be greater than Start KM.');
+                    setLoading(false);
+                    return;
+                }
+                kmRidden = endKm - startKm;
+            } else { // totalKm
+                kmRidden = parseFloat(fuelForm.totalKm);
+            }
+
+            if (litersValue <= 0 || costValue <= 0 || kmRidden <= 0 || isNaN(litersValue) || isNaN(costValue) || isNaN(kmRidden)) {
+                setError('All fuel entry numeric fields must be positive numbers.');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const fuelData = {
+                    userId: currentUser.uid,
+                    entryType: fuelForm.entryType,
+                    liters: litersValue,
+                    cost: costValue,
+                    partialFill: fuelForm.partialFill,
+                    date: fuelForm.date,
+                    notes: fuelForm.notes,
+                    createdAt: new Date().toISOString()
+                };
+
+                if (fuelForm.entryType === 'startEnd') {
+                    fuelData.startKm = parseFloat(fuelForm.startKm);
+                    fuelData.endKm = parseFloat(fuelForm.endKm);
+                } else {
+                    fuelData.totalKm = parseFloat(fuelForm.totalKm);
+                }
+
+                await db.collection('fuel').add(fuelData);
+
+                setFuelForm({
+                    entryType: fuelForm.entryType, // Keep the selected entry type
+                    startKm: '',
+                    endKm: '',
+                    totalKm: '',
+                    liters: '',
+                    cost: '',
+                    partialFill: false,
+                    date: new Date().toISOString().slice(0, 16),
+                    notes: ''
+                });
+                setSuccess('Fuel entry added successfully! Check History tab.');
+                setTimeout(() => setSuccess(''), 4000);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const deleteTrip = async (id) => {
+            if (!window.confirm('Are you sure you want to delete this trip?')) return;
+            
+            try {
+                await db.collection('trips').doc(id).delete();
+                setSuccess('Trip deleted successfully!');
+                setTimeout(() => setSuccess(''), 3000);
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+
+        const deleteFuel = async (id) => {
+            if (!window.confirm('Are you sure you want to delete this fuel entry?')) return;
+            
+            try {
+                await db.collection('fuel').doc(id).delete();
+                setSuccess('Fuel entry deleted successfully!');
+                setTimeout(() => setSuccess(''), 3000);
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+
+        const approveUser = async (userId) => {
+            try {
+                await db.collection('users').doc(userId).update({
+                    status: 'approved',
+                    approvedAt: new Date().toISOString()
+                });
+                setSuccess('User approved successfully!');
+                setTimeout(() => setSuccess(''), 3000);
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+
+        const rejectUser = async (userId) => {
+            if (!window.confirm('Are you sure you want to reject this user?')) return;
+            
+            try {
+                await db.collection('users').doc(userId).update({
+                    status: 'rejected',
+                    rejectedAt: new Date().toISOString()
+                });
+                setSuccess('User rejected.');
+                setTimeout(() => setSuccess(''), 3000);
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+        
+        const exportData = () => {
+            const data = {
+                trips: trips,
+                fuelEntries: fuelEntries,
+                exportDate: new Date().toISOString()
+            };
+            const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+            const link = document.createElement('a');
+            link.href = jsonString;
+            link.download = `bike_tracker_data_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+            setSuccess('Data exported successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+        };
+        
+        const importData = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!importedData.trips || !importedData.fuelEntries) {
+                        throw new Error("Invalid file structure. Must contain 'trips' and 'fuelEntries'.");
+                    }
+
+                    if (!window.confirm("WARNING: Importing data will ADD the new records to your existing database. Do you want to continue?")) return;
+
+                    setLoading(true);
+                    const batch = db.batch();
+
+                    importedData.trips.forEach(trip => {
+                        // Create a new ID for the imported trip to avoid overwriting
+                        const newTripRef = db.collection('trips').doc();
+                        batch.set(newTripRef, {
+                            ...trip,
+                            userId: currentUser.uid,
+                            createdAt: new Date().toISOString(), // Update creation time
+                            id: undefined // Don't save the old ID
+                        });
+                    });
+
+                    importedData.fuelEntries.forEach(fuel => {
+                        const newFuelRef = db.collection('fuel').doc();
+                        batch.set(newFuelRef, {
+                            ...fuel,
+                            userId: currentUser.uid,
+                            createdAt: new Date().toISOString(),
+                            id: undefined
+                        });
+                    });
+
+                    await batch.commit();
+                    setSuccess(`Data imported successfully! ${importedData.trips.length} trips and ${importedData.fuelEntries.length} fuel entries added.`);
+                } catch (err) {
+                    setError('Error importing data: ' + err.message);
+                } finally {
+                    setLoading(false);
+                    event.target.value = null; // Clear file input
+                    setTimeout(() => setSuccess(''), 5000);
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        // --- Calculation Logic ---
+        const getCurrentOdometer = () => {
+            let maxKm = 0;
+            // Find the highest endKm from full or partial fill entries
+            fuelEntries.forEach(entry => {
+                if (entry.entryType === 'startEnd' && entry.endKm > maxKm) {
+                    maxKm = entry.endKm;
+                }
+            });
+            // If no fuel entries, check the latest trip for a relative starting point, although fuel is the main odometer source
+            if (maxKm === 0 && trips.length > 0) {
+                 // Fallback: If odometer is zero, the current value is the largest KM in a trip (not reliable for odometer, but better than 0)
+                 // Keeping it based on fuel entries for odometer tracking is best practice.
+            }
+
+            return maxKm.toFixed(0);
+        };
+
+        const calculateAverageMileage = () => {
+            const fullTankEntries = fuelEntries.filter(e => !e.partialFill);
+            
+            // Need at least two full tank entries to calculate mileage *between* fills
+            if (fullTankEntries.length < 2) return 0;
+            
+            // Sort by date ascending to calculate distance between fills
+            const sortedFullFills = [...fullTankEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            let totalKmBetweenFills = 0;
+            let totalLitersAfterFirstFill = 0;
+            
+            // Start from the second full fill (index 1)
+            for (let i = 1; i < sortedFullFills.length; i++) {
+                const currentFill = sortedFullFills[i];
+                const previousFill = sortedFullFills[i-1];
+                
+                // For simplicity and robustness in a quick app, we use the fuel entry's recorded KM, assuming 
+                // the KM represents the distance since the last fill.
+                // NOTE: Proper mileage requires tracking distance from the Odometer of the *previous* full fill
+                // to the Odometer of the *current* full fill.
+                // Given the existing fuel entry structure (start/end or total), we'll simplify and sum up 
+                // the total KM and total Liters of *all* full-fill entries and divide, as a running average.
+                
+                // Simplified running average calculation:
+                let kmRidden = currentFill.entryType === 'startEnd' ? (currentFill.endKm - currentFill.startKm) : currentFill.totalKm;
+                
+                // A better calculation for total average is to just sum up all total KMs associated with non-partial fills and all liters.
+                // However, this is only accurate if the recorded KM is the distance since the LAST full tank.
+                // We'll stick to the simpler sum for this rapid build.
+            }
+            
+            // Simple approach: sum all KM driven in full tank entries and divide by all liters
+            let simpleTotalKm = 0;
+            let simpleTotalLiters = 0;
+            
+            fullTankEntries.forEach(entry => {
+                 simpleTotalLiters += entry.liters;
+                 if (entry.entryType === 'startEnd') {
+                     simpleTotalKm += (entry.endKm - entry.startKm);
+                 } else {
+                     simpleTotalKm += entry.totalKm;
+                 }
+            });
+            
+            return simpleTotalLiters > 0 ? (simpleTotalKm / simpleTotalLiters).toFixed(2) : 0;
+        };
+
+        const totalTrips = trips.length;
+        const totalKmTraveled = trips.reduce((sum, t) => sum + t.kilometers, 0).toFixed(1);
+        const totalFuelCost = fuelEntries.reduce((sum, f) => sum + f.cost, 0).toFixed(2);
+        const totalFuelLiters = fuelEntries.reduce((sum, f) => sum + f.liters, 0).toFixed(2);
+        const avgMileage = calculateAverageMileage();
+        const currentOdometer = getCurrentOdometer();
+
+        // --- View Logic ---
+
+        // 1. Auth Screen
+        if (loading && !currentUser) {
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                    <div className="text-center">
+                        <Loader className="w-8 h-8 mx-auto text-indigo-600" />
+                        <p className="text-gray-600 mt-4">Loading application...</p>
+                    </div>
+                </div>
+            );
+        }
+
+        if (!currentUser) {
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 text-white rounded-full mb-4">
+                                <Camera className="w-8 h-8"/>
+                            </div>
+                            <h1 className="text-3xl font-bold text-gray-800">Bike Tracker</h1>
+                            <p className="text-gray-600 mt-2">Track your rides & mileage</p>
+                        </div>
+
+                        {success && (
+                            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                                {success}
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                                {error}
+                            </div>
+                        )}
+
+                        {authMode === 'pending' ? (
+                            <div className="text-center py-8">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full mb-4">
+                                    <Check className="w-8 h-8"/>
+                                </div>
+                                <h2 className="text-xl font-semibold text-gray-800 mb-2">Registration Submitted!</h2>
+                                <p className="text-gray-600 mb-6">Your account is pending admin approval.</p>
+                                <button
+                                    onClick={() => { setAuthMode('login'); setSuccess(''); setError(''); }}
+                                    className="text-indigo-600 hover:text-indigo-700 font-medium"
+                                >
+                                    Back to Login
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex border-b mb-6">
+                                    <button
+                                        onClick={() => { setAuthMode('login'); setError(''); setSuccess(''); }}
+                                        className={`flex-1 py-2 text-center font-medium ${
+                                            authMode === 'login'
+                                                ? 'text-indigo-600 border-b-2 border-indigo-600'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        Login
+                                    </button>
+                                    <button
+                                        onClick={() => { setAuthMode('register'); setError(''); setSuccess(''); }}
+                                        className={`flex-1 py-2 text-center font-medium ${
+                                            authMode === 'register'
+                                                ? 'text-indigo-600 border-b-2 border-indigo-600'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        Register
+                                    </button>
+                                </div>
+
+                                <form onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
+                                    {authMode === 'register' && (
+                                        <div className="mb-4">
+                                            <label className="block text-gray-700 font-medium mb-2">Name</label>
+                                            <input
+                                                type="text"
+                                                value={name}
+                                                onChange={(e) => setName(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                required
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 font-medium mb-2">Email</label>
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <label className="block text-gray-700 font-medium mb-2">Password</label>
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            required
+                                            minLength="6"
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                                    >
+                                        {loading ? <Loader className="w-5 h-5" /> : (authMode === 'login' ? 'Login' : 'Register')}
+                                    </button>
+                                </form>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+        
+        // 2. Main App Content (Dashboard, Add Entry, History)
+        
+        const Dashboard = () => (
+            <div className="p-4 sm:p-6 pb-24">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Overview</h2>
+                
+                {/* Odometer Card */}
+                <div className="bg-indigo-600 text-white p-6 rounded-2xl shadow-xl mb-6">
+                    <p className="text-lg font-semibold opacity-80">Current Odometer</p>
+                    <p className="text-5xl font-extrabold mt-1">
+                        {currentOdometer} <span className="text-3xl font-light opacity-80">KM</span>
+                    </p>
+                    <p className="text-sm mt-3 opacity-90">Based on your highest recorded fuel entry.</p>
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                    <StatCard 
+                        icon={<TrendingUp className="w-6 h-6"/>} 
+                        title="Avg. Mileage" 
+                        value={avgMileage} 
+                        unit="km/L" 
+                        color="green"
+                    />
+                    <StatCard 
+                        icon={<BarChart3 className="w-6 h-6"/>} 
+                        title="Total KM" 
+                        value={totalKmTraveled} 
+                        unit="KM" 
+                        color="indigo"
+                    />
+                    <StatCard 
+                        icon={<Fuel className="w-6 h-6"/>} 
+                        title="Total Fuel Cost" 
+                        value={`₹${totalFuelCost}`} 
+                        unit="" 
+                        color="red"
+                    />
+                    <StatCard 
+                        icon={<List className="w-6 h-6"/>} 
+                        title="Total Trips" 
+                        value={totalTrips} 
+                        unit="" 
+                        color="blue"
+                    />
+                </div>
+                
+                {isAdmin && pendingUsers.length > 0 && (
+                    <div className="mt-8">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-3 flex items-center">
+                            <Users className="w-5 h-5 mr-2 text-yellow-600"/> Pending Approvals ({pendingUsers.length})
+                        </h3>
+                        <div className="space-y-3">
+                            {pendingUsers.map(user => (
+                                <AdminUserItem 
+                                    key={user.id} 
+                                    user={user} 
+                                    onApprove={approveUser} 
+                                    onReject={rejectUser} 
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div className="mt-8 border-t pt-6">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Data Management</h3>
+                    <div className="flex space-x-4">
+                        <button 
+                            onClick={exportData}
+                            className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors flex items-center justify-center text-sm"
+                        >
+                            <Download className="w-5 h-5 mr-2"/> Export Data
+                        </button>
+                        <label className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors flex items-center justify-center text-sm cursor-pointer">
+                            <Upload className="w-5 h-5 mr-2"/> Import Data
+                            <input type="file" accept=".json" onChange={importData} className="hidden" />
+                        </label>
+                    </div>
+                </div>
+            </div>
+        );
+        
+        const AddEntry = () => (
+            <div className="p-4 sm:p-6 pb-24">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Add New Entry</h2>
+                
+                {/* Entry Tabs */}
+                <div className="flex border-b border-gray-200 mb-6">
+                    <button
+                        onClick={() => setEntryTab('trip')}
+                        className={`flex-1 py-3 text-center font-medium transition-colors ${
+                            entryTab === 'trip' 
+                                ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        <MapPin className="inline w-5 h-5 mr-2"/> Trip Log
+                    </button>
+                    <button
+                        onClick={() => setEntryTab('fuel')}
+                        className={`flex-1 py-3 text-center font-medium transition-colors ${
+                            entryTab === 'fuel' 
+                                ? 'text-indigo-600 border-b-2 border-indigo-600' 
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        <Fuel className="inline w-5 h-5 mr-2"/> Fuel Log
+                    </button>
+                </div>
+
+                {entryTab === 'trip' ? (
+                    <form onSubmit={handleAddTrip} className="space-y-4">
+                        <input 
+                            type="text" 
+                            placeholder="Source Place Name" 
+                            value={tripForm.source}
+                            onChange={(e) => setTripForm({...tripForm, source: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                            required
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Destination Place Name" 
+                            value={tripForm.destination}
+                            onChange={(e) => setTripForm({...tripForm, destination: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                            required
+                        />
+                        <input 
+                            type="number" 
+                            placeholder="Kilometers Traveled (KM)" 
+                            value={tripForm.kilometers}
+                            onChange={(e) => setTripForm({...tripForm, kilometers: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                            required
+                            min="0.1" step="0.1"
+                        />
+                        <input 
+                            type="datetime-local" 
+                            value={tripForm.date}
+                            onChange={(e) => setTripForm({...tripForm, date: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                            required
+                        />
+                        <textarea
+                            placeholder="Notes (Optional)"
+                            rows="2"
+                            value={tripForm.notes}
+                            onChange={(e) => setTripForm({...tripForm, notes: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                        ></textarea>
+                        
+                        <button
+                            type="submit"
+                            disabled={loading || !tripForm.source || !tripForm.destination || !tripForm.kilometers || !tripForm.date}
+                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-gray-400 flex items-center justify-center"
+                        >
+                            {loading ? <Loader className="w-5 h-5" /> : 'Log Trip'}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleAddFuel} className="space-y-4">
+                        {/* Entry Type Selector */}
+                        <div className="flex bg-gray-100 rounded-lg p-1">
+                            <button
+                                type="button"
+                                onClick={() => setFuelForm({...fuelForm, entryType: 'startEnd'})}
+                                className={`flex-1 py-2 text-center text-sm font-medium rounded-lg transition-colors ${
+                                    fuelForm.entryType === 'startEnd' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'
+                                }`}
+                            >
+                                Start/End KM
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFuelForm({...fuelForm, entryType: 'totalKm'})}
+                                className={`flex-1 py-2 text-center text-sm font-medium rounded-lg transition-colors ${
+                                    fuelForm.entryType === 'totalKm' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'
+                                }`}
+                            >
+                                Total KM Ridden
+                            </button>
+                        </div>
+                        
+                        {/* KM Fields */}
+                        {fuelForm.entryType === 'startEnd' ? (
+                            <>
+                                <input 
+                                    type="number" 
+                                    placeholder="Start Odometer Reading (KM)" 
+                                    value={fuelForm.startKm}
+                                    onChange={(e) => setFuelForm({...fuelForm, startKm: e.target.value})}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                                    required
+                                    min="0" step="1"
+                                />
+                                <input 
+                                    type="number" 
+                                    placeholder="End Odometer Reading (KM)" 
+                                    value={fuelForm.endKm}
+                                    onChange={(e) => setFuelForm({...fuelForm, endKm: e.target.value})}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                                    required
+                                    min={parseFloat(fuelForm.startKm) + 0.1} step="1"
+                                />
+                            </>
+                        ) : (
+                            <input 
+                                type="number" 
+                                placeholder="Total Kilometers Ridden (KM)" 
+                                value={fuelForm.totalKm}
+                                onChange={(e) => setFuelForm({...fuelForm, totalKm: e.target.value})}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                                required
+                                min="0.1" step="0.1"
+                            />
+                        )}
+                        
+                        {/* Fuel and Cost Fields */}
+                        <div className="flex space-x-4">
+                            <input 
+                                type="number" 
+                                placeholder="Liters Filled" 
+                                value={fuelForm.liters}
+                                onChange={(e) => setFuelForm({...fuelForm, liters: e.target.value})}
+                                className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                                required
+                                min="0.01" step="0.01"
+                            />
+                            <input 
+                                type="number" 
+                                placeholder="Total Cost (₹)" 
+                                value={fuelForm.cost}
+                                onChange={(e) => setFuelForm({...fuelForm, cost: e.target.value})}
+                                className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                                required
+                                min="1" step="1"
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <label className="text-gray-700 font-medium cursor-pointer">Partial Fill? <span className="text-sm text-gray-500 font-normal">(Exclude from Mileage Calculation)</span></label>
+                            <input
+                                type="checkbox"
+                                checked={fuelForm.partialFill}
+                                onChange={(e) => setFuelForm({...fuelForm, partialFill: e.target.checked})}
+                                className="form-checkbox h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                        </div>
+                        
+                        <input 
+                            type="datetime-local" 
+                            value={fuelForm.date}
+                            onChange={(e) => setFuelForm({...fuelForm, date: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                            required
+                        />
+
+                        <textarea
+                            placeholder="Notes (Optional)"
+                            rows="2"
+                            value={fuelForm.notes}
+                            onChange={(e) => setFuelForm({...fuelForm, notes: e.target.value})}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500"
+                        ></textarea>
+                        
+                        <button
+                            type="submit"
+                            disabled={loading || !fuelForm.liters || !fuelForm.cost || (fuelForm.entryType === 'startEnd' ? (!fuelForm.startKm || !fuelForm.endKm) : !fuelForm.totalKm)}
+                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-gray-400 flex items-center justify-center"
+                        >
+                            {loading ? <Loader className="w-5 h-5" /> : 'Log Fuel'}
+                        </button>
+                    </form>
+                )}
+            </div>
+        );
+        
+        const History = () => (
+            <div className="p-4 sm:p-6 pb-24">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">History</h2>
+                
+                {/* History Type Selector */}
+                <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+                    <button
+                        onClick={() => setHistoryType('trips')}
+                        className={`flex-1 py-2 text-center font-medium rounded-lg transition-colors ${
+                            historyType === 'trips' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'
+                        }`}
+                    >
+                        Trips ({trips.length})
+                    </button>
+                    <button
+                        onClick={() => setHistoryType('fuel')}
+                        className={`flex-1 py-2 text-center font-medium rounded-lg transition-colors ${
+                            historyType === 'fuel' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'
+                        }`}
+                    >
+                        Fuel ({fuelEntries.length})
+                    </button>
+                </div>
+
+                <div className="space-y-3">
+                    {historyType === 'trips' ? (
+                        trips.length > 0 ? (
+                            trips.map(trip => (
+                                <RecordItem 
+                                    key={trip.id} 
+                                    type="trip" 
+                                    data={trip} 
+                                    onDelete={deleteTrip} 
+                                    onEdit={() => {/* Placeholder for edit */}}
+                                />
+                            ))
+                        ) : (
+                            <p className="text-center text-gray-500 py-8">No trip records found. Start logging your rides!</p>
+                        )
+                    ) : (
+                        fuelEntries.length > 0 ? (
+                            fuelEntries.map(fuel => (
+                                <RecordItem 
+                                    key={fuel.id} 
+                                    type="fuel" 
+                                    data={fuel} 
+                                    onDelete={deleteFuel} 
+                                    onEdit={() => {/* Placeholder for edit */}}
+                                />
+                            ))
+                        ) : (
+                            <p className="text-center text-gray-500 py-8">No fuel records found. Fill up and log it!</p>
+                        )
+                    )}
+                </div>
+            </div>
+        );
+
+        const renderContent = () => {
+            switch (activeTab) {
+                case 'dashboard':
+                    return <Dashboard />;
+                case 'add':
+                    return <AddEntry />;
+                case 'history':
+                    return <History />;
+                default:
+                    return <Dashboard />;
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+                {/* Header for Desktop/Tablet */}
+                <header className="hidden sm:flex bg-white shadow-md p-4 sticky top-0 z-10 justify-between items-center">
+                    <h1 className="text-2xl font-bold text-indigo-600 flex items-center">
+                        <Camera className="w-6 h-6 mr-2"/> Bike Tracker
+                    </h1>
+                    <nav className="flex space-x-6">
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`flex items-center p-2 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-600 hover:text-indigo-600'}`}
+                        >
+                            <Home className="w-5 h-5 mr-2"/> Dashboard
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('add')}
+                            className={`flex items-center p-2 rounded-lg transition-colors ${activeTab === 'add' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-600 hover:text-indigo-600'}`}
+                        >
+                            <PlusCircle className="w-5 h-5 mr-2"/> Add Entry
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`flex items-center p-2 rounded-lg transition-colors ${activeTab === 'history' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-600 hover:text-indigo-600'}`}
+                        >
+                            <List className="w-5 h-5 mr-2"/> History
+                        </button>
+                    </nav>
+                    <div className="flex items-center space-x-4">
+                        <span className="text-gray-700 text-sm font-medium hidden md:inline">{userProfile?.name} ({isAdmin ? 'Admin' : 'User'})</span>
+                        <button 
+                            onClick={handleLogout} 
+                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                            title="Logout"
+                        >
+                            <LogOut className="w-5 h-5"/>
+                        </button>
+                    </div>
+                </header>
+                
+                {/* Header for Mobile */}
+                <header className="sm:hidden bg-white shadow-md p-4 sticky top-0 z-10 flex justify-between items-center">
+                    <h1 className="text-xl font-bold text-indigo-600">Bike Tracker</h1>
+                    <button 
+                        onClick={handleLogout} 
+                        className="text-red-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                        title="Logout"
+                    >
+                        <LogOut className="w-6 h-6"/>
+                    </button>
+                </header>
+
+                {/* Main Content Area */}
+                <main className="flex-grow max-w-4xl w-full mx-auto">
+                    {/* Success/Error Notifications */}
+                    {(success || error) && (
+                        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md p-4 rounded-lg shadow-xl z-50 ${success ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                            {success || error}
+                            <button onClick={() => { setSuccess(''); setError(''); }} className="float-right font-bold ml-4"><X /></button>
+                        </div>
+                    )}
+                    {renderContent()}
+                </main>
+
+                {/* Bottom Navigation for Mobile */}
+                <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 shadow-lg">
+                    <div className="flex justify-around items-center h-16">
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`flex flex-col items-center justify-center p-2 transition-colors ${activeTab === 'dashboard' ? 'text-indigo-600' : 'text-gray-500'}`}
+                        >
+                            <Home className="w-6 h-6"/>
+                            <span className="text-xs mt-1">Dash</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('add')}
+                            className={`flex flex-col items-center justify-center p-2 transition-colors ${activeTab === 'add' ? 'text-indigo-600' : 'text-gray-500'}`}
+                        >
+                            <PlusCircle className="w-6 h-6"/>
+                            <span className="text-xs mt-1">Add</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`flex flex-col items-center justify-center p-2 transition-colors ${activeTab === 'history' ? 'text-indigo-600' : 'text-gray-500'}`}
+                        >
+                            <List className="w-6 h-6"/>
+                            <span className="text-xs mt-1">History</span>
+                        </button>
+                    </div>
+                </nav>
+            </div>
+        );
+    }
+    // --- End of Main Application Component ---
+
+    // Initial Render
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<BikeTrackerApp />);
+  </script>
+</body>
+</html>
