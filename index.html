@@ -1,5 +1,96 @@
-<!Doctype HTML>
-<body>
-  <h1> The app is temporarily down due to addition of new features</h1>
-  <h1> we will be back in 2 days. Thanks for your patience</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Complete bike tracking with trips, fuel, service, and maintenance">
+  <meta name="theme-color" content="#4F46E5">
+  <title>Bike Tracker - Complete Solution</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  
+  <!-- React (for component-based approach) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+    .glassmorphism {
+      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.9);
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(to bottom, #4F46E5, #7C3AED);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(to bottom, #4338CA, #6D28D9);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+  <div id="root"></div>
+
+  <!-- Load all modules in order -->
+  <script type="text/babel">
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAFDBwMaw7Zga9cEQ0RuN0uuNmtkrDU4L0",
+      authDomain: "bike-travel-and-fuel-manager.firebaseapp.com",
+      projectId: "bike-travel-and-fuel-manager",
+      storageBucket: "bike-travel-and-fuel-manager.firebasestorage.app",
+      messagingSenderId: "633337550155",
+      appId: "1:633337550155:web:a8347fe132d290323184ce",
+      measurementId: "G-MKTQC8T38S"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    window.auth = firebase.auth();
+    window.db = firebase.firestore();
+    window.storage = firebase.storage();
+  </script>
+
+  <!-- Load modules -->
+  <script src="js/utils.js" type="text/babel"></script>
+  <script src="js/components.js" type="text/babel"></script>
+  <script src="js/auth.js" type="text/babel"></script>
+  <script src="js/dashboard.js" type="text/babel"></script>
+  <script src="js/trips.js" type="text/babel"></script>
+  <script src="js/fuel.js" type="text/babel"></script>
+  <script src="js/service.js" type="text/babel"></script>
+  <script src="js/issues.js" type="text/babel"></script>
+  <script src="js/app.js" type="text/babel"></script>
 </body>
+</html>
