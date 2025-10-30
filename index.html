@@ -511,13 +511,12 @@
       };
 
       const calculateAverageMileage = () => {
-        const fullTankEntries = fuelEntries.filter(e => !e.partialFill);
-        if (fullTankEntries.length === 0) return 0;
+         if (fuelEntries.length === 0) return 0;
         
         let totalKm = 0;
         let totalLiters = 0;
         
-        fullTankEntries.forEach(entry => {
+        fuelEntries.forEach(entry => {
           if (entry.entryType === 'startEnd') {
             totalKm += (entry.endKm - entry.startKm);
           } else {
